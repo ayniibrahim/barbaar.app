@@ -1,0 +1,199 @@
+{
+  "entities": {
+    "profiles": {
+      "title": "User Profile",
+      "description": "Stores user-specific data like points, level, and preferences.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "description": "The user's unique ID from Firebase Auth." },
+        "name": { "type": "string", "description": "Display name of the user." },
+        "avatar_url": { "type": "string", "description": "URL to the user's avatar image." },
+        "level": { "type": "integer", "description": "Current level of the user." },
+        "experience": { "type": "integer", "description": "Current experience points." },
+        "next_level_exp": { "type": "integer", "description": "Experience points needed for next level." },
+        "streak": { "type": "integer", "description": "Current daily streak." },
+        "points": { "type": "integer", "description": "Total XP points." },
+        "sabr_points": { "type": "integer", "description": "Points for good activities/patience." },
+        "focus_time_total": { "type": "integer", "description": "Total focus time in seconds." },
+        "daily_wins": { "type": "integer", "description": "Count of daily wins." },
+        "mood": { "type": "string", "description": "Last recorded mood." },
+        "has_checked_in": { "type": "boolean", "description": "Whether the user checked in today." },
+        "last_active_date": { "type": "string", "description": "Last date the user was active." },
+        "unlocked_features": { "type": "array", "items": { "type": "string" }, "description": "List of features unlocked by the user." },
+        "achievements": { "type": "array", "items": { "type": "string" }, "description": "List of IDs of unlocked badges." },
+        "updated_at": { "type": "string", "format": "date-time" }
+      },
+      "required": ["id", "name"]
+    },
+    "mood_logs": {
+      "title": "Mood Log",
+      "description": "A record of a user's mood at a specific time.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "user_id": { "type": "string" },
+        "date": { "type": "string", "format": "date-time" },
+        "mood": { "type": "string", "enum": ["very-sad", "sad", "neutral", "happy", "very-happy"] },
+        "note": { "type": "string" }
+      },
+      "required": ["user_id", "date", "mood"]
+    },
+    "tasks": {
+      "title": "Task",
+      "description": "A productivity task created by the user.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "user_id": { "type": "string" },
+        "title": { "type": "string" },
+        "time": { "type": "string" },
+        "duration": { "type": "string" },
+        "completed": { "type": "boolean" },
+        "completed_at": { "type": "string" },
+        "priority": { "type": "string", "enum": ["low", "medium", "high"] },
+        "due_date": { "type": "string" },
+        "created_at": { "type": "string", "format": "date-time" },
+        "focus_time_spent": { "type": "integer" }
+      },
+      "required": ["user_id", "title"]
+    },
+    "journal_entries": {
+      "title": "Journal Entry",
+      "description": "A daily reflection entry.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "user_id": { "type": "string" },
+        "content": { "type": "string" },
+        "mood": { "type": "string" },
+        "date": { "type": "string" },
+        "created_at": { "type": "string", "format": "date-time" }
+      },
+      "required": ["user_id", "content", "date"]
+    },
+    "nasasho": {
+      "title": "Nasasho Content",
+      "description": "Audio and video content for relaxation.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "title": { "type": "string" },
+        "category": { "type": "string", "enum": ["Podcast", "Quran", "Nature", "Sleep"] },
+        "audioUrl": { "type": "string" },
+        "embedUrl": { "type": "string", "description": "Google Drive or other iframe embed URL." },
+        "duration": { "type": "string" },
+        "image": { "type": "string" },
+        "description": { "type": "string" },
+        "reciter": { "type": "string" },
+        "published": { "type": "boolean" }
+      },
+      "required": ["title", "category", "duration", "image"]
+    },
+    "challenges": {
+      "title": "Discipline Challenge",
+      "description": "A pre-designed or custom discipline challenge.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "title": { "type": "string" },
+        "description": { "type": "string" },
+        "durationDays": { "type": "integer" },
+        "tasks": { "type": "array", "items": { "type": "object" } },
+        "category": { "type": "string", "enum": ["discipline", "health", "mindset", "productivity"] },
+        "image": { "type": "string" },
+        "isCustom": { "type": "boolean" },
+        "createdBy": { "type": "string" },
+        "participantsCount": { "type": "integer" },
+        "published": { "type": "boolean" }
+      },
+      "required": ["title", "description", "durationDays", "tasks", "category"]
+    },
+    "user_challenges": {
+      "title": "User Challenge Progress",
+      "description": "Tracks a user's progress in a specific challenge.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "user_id": { "type": "string" },
+        "challengeId": { "type": "string" },
+        "startDate": { "type": "string", "format": "date-time" },
+        "endDate": { "type": "string", "format": "date-time" },
+        "status": { "type": "string", "enum": ["active", "completed", "failed"] },
+        "currentDay": { "type": "integer" },
+        "dailyProgress": { "type": "object" },
+        "streak": { "type": "integer" },
+        "lastCheckInDate": { "type": "string" }
+      },
+      "required": ["user_id", "challengeId", "startDate", "endDate", "status"]
+    },
+    "chat_rooms": {
+      "title": "Chat Room",
+      "description": "A chat session between a user and the Barbaar team.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "user_id": { "type": "string" },
+        "user_name": { "type": "string" },
+        "status": { "type": "string", "enum": ["waiting", "active", "closed"] },
+        "created_at": { "type": "string", "format": "date-time" },
+        "last_message_at": { "type": "string", "format": "date-time" },
+        "assigned_team_member_id": { "type": "string" },
+        "assigned_team_member_name": { "type": "string" }
+      },
+      "required": ["user_id", "status", "created_at"]
+    },
+    "chat_messages": {
+      "title": "Chat Message",
+      "description": "A message within a chat room.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "room_id": { "type": "string" },
+        "sender_id": { "type": "string" },
+        "sender_name": { "type": "string" },
+        "sender_type": { "type": "string", "enum": ["user", "team"] },
+        "text": { "type": "string" },
+        "created_at": { "type": "string", "format": "date-time" }
+      },
+      "required": ["room_id", "sender_id", "sender_type", "text", "created_at"]
+    }
+  },
+  "firestore": {
+    "/profiles/{userId}": {
+      "schema": "profiles",
+      "description": "User profile documents."
+    },
+    "/mood_logs/{logId}": {
+      "schema": "mood_logs",
+      "description": "User mood logs."
+    },
+    "/tasks/{taskId}": {
+      "schema": "tasks",
+      "description": "Individual task documents."
+    },
+    "/journal_entries/{entryId}": {
+      "schema": "journal_entries",
+      "description": "User journal entries."
+    },
+    "/nasasho/{nasashoId}": {
+      "schema": "nasasho",
+      "description": "Nasasho relaxation content."
+    },
+    "/challenges/{challengeId}": {
+      "schema": "challenges",
+      "description": "Available discipline challenges."
+    },
+    "/user_challenges/{userChallengeId}": {
+      "schema": "user_challenges",
+      "description": "User progress in challenges."
+    },
+    "/chat_rooms/{roomId}": {
+      "schema": "chat_rooms",
+      "description": "Chat rooms for support."
+    },
+    "/chat_messages/{messageId}": {
+      "schema": "chat_messages",
+      "description": "Messages within chat rooms."
+    }
+  }
+}

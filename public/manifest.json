@@ -1,0 +1,30 @@
+{
+  "short_name": "Barbaar",
+  "name": "Barbaar",
+  "icons": [
+    {
+      "src": "/barbaar-icon.svg",
+      "type": "image/svg+xml",
+      "sizes": "any",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/barbaar-icon.svg",
+      "type": "image/svg+xml",
+      "sizes": "192x192",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/barbaar-icon.svg",
+      "type": "image/svg+xml",
+      "sizes": "512x512",
+      "purpose": "any maskable"
+    }
+  ],
+  "start_url": "/",
+  "background_color": "#F8F9F8",
+  "display": "standalone",
+  "scope": "/",
+  "theme_color": "#76B06E",
+  "description": "Barbaar Wellness & Self-Growth App"
+}

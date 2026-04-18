@@ -1,0 +1,332 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // ===============================================================
+    // Assumed Data Model
+    // ===============================================================
+    //
+    // Collection: profiles
+    // Document ID: {userId}
+    // Fields:
+    //   - id: string (required) - User's unique ID
+    //   - name: string (required) - Display name
+    //   - avatar_url: string (optional) - Avatar URL
+    //   - level: number (optional) - User level
+    //   - experience: number (optional) - User experience
+    //   - next_level_exp: number (optional) - Exp for next level
+    //   - streak: number (optional) - Daily streak
+    //   - points: number (optional) - Sabr points
+    //   - mood: string (optional) - Current mood
+    //   - has_checked_in: bool (optional) - Check-in status
+    //   - updated_at: timestamp (optional) - Last update time
+    //
+    // Collection: tasks
+    // Document ID: {taskId}
+    // Fields:
+    //   - user_id: string (required) - Owner's UID
+    //   - title: string (required) - Task title
+    //   - time: string (optional) - Scheduled time
+    //   - duration: string (optional) - Task duration
+    //   - completed: bool (optional) - Completion status
+    //   - completed_at: string (optional) - Completion time
+    //   - priority: string (optional) - low, medium, high
+    //   - due_date: string (optional) - Due date
+    //   - created_at: timestamp (optional) - Creation time
+    //   - focus_time_spent: number (optional) - Focus time in seconds
+    //
+    // Collection: journal_entries
+    // Document ID: {entryId}
+    // Fields:
+    //   - user_id: string (required) - Owner's UID
+    //   - content: string (required) - Entry content
+    //   - mood: string (optional) - Mood at entry
+    //   - date: string (required) - Entry date
+    //   - created_at: timestamp (optional) - Creation time
+    //
+    // Collection: mood_logs
+    // Document ID: {logId}
+    // Fields:
+    //   - user_id: string (required) - Owner's UID
+    //   - date: string (required) - Log date (ISO string)
+    //   - mood: string (required) - very-sad, sad, neutral, happy, very-happy
+    //   - note: string (optional) - Optional note
+    //   - created_at: timestamp (optional) - Creation time
+    //
+    // Collection: bookings
+    // Document ID: {bookingId}
+    // Fields:
+    //   - userId: string (required) - User's UID
+    //   - therapist: map (required) - Therapist details
+    //   - slot: string (required) - Selected time slot
+    //   - demographics: map (required) - Age, gender, location, goal
+    //   - evcNumber: string (required) - EVC payment number
+    //   - userEmail: string (required) - User's email
+    //   - status: string (required) - pending, confirmed, cancelled
+    //   - createdAt: timestamp (required) - Creation time
+    //
+    // Collection: notifications
+    // Document ID: {notificationId}
+    // Fields:
+    //   - user_id: string (required) - Target user's UID
+    //   - title: string (required) - Notification title
+    //   - content: string (required) - Notification body
+    //   - type: string (optional) - achievement, reminder, etc.
+    //   - read: bool (optional) - Read status
+    //   - timestamp: timestamp (required) - Creation time
+    //
+    // ===============================================================
+
+    // ===============================================================
+    // Helper Functions
+    // ===============================================================
+    
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    function isOwner(userId) {
+      return isAuthenticated() && request.auth.uid == userId;
+    }
+
+    function isDocOwner() {
+      return isAuthenticated() && request.auth.uid == resource.data.user_id;
+    }
+
+    function isRequestOwner() {
+      return isAuthenticated() && request.auth.uid == request.resource.data.user_id;
+    }
+
+    function isAdmin() {
+      return isAuthenticated() &&
+        ((exists(/databases/$(database)/documents/profiles/$(request.auth.uid)) && get(/databases/$(database)/documents/profiles/$(request.auth.uid)).data.get('role', 'user') == 'admin') ||
+          (request.auth.token.email == "qaalidibrahim.996@gmail.com" && request.auth.token.email_verified == true));
+    }
+
+    function isValidEmail(email) {
+      return email is string && email.matches("^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,}$");
+    }
+
+    function isValidUrl(url) {
+      return url is string && (url.matches("^https://.*") || url.matches("^http://.*"));
+    }
+
+    function isRecent(time) {
+      return time is timestamp &&
+             time > request.time - duration.value(5, 'm') &&
+             time < request.time + duration.value(5, 'm');
+    }
+
+    // ===============================================================
+    // Domain Validators
+    // ===============================================================
+
+    function isValidProfile(data) {
+      return data.name is string && data.name.size() > 0 && data.name.size() < 100 &&
+             (!('avatar_url' in data) || isValidUrl(data.avatar_url)) &&
+             (!('level' in data) || data.level is number) &&
+             (!('experience' in data) || data.experience is number) &&
+             (!('next_level_exp' in data) || data.next_level_exp is number) &&
+             (!('streak' in data) || data.streak is number) &&
+             (!('journal_streak' in data) || data.journal_streak is number) &&
+             (!('points' in data) || data.points is number) &&
+             (!('sabr_points' in data) || data.sabr_points is number) &&
+             (!('sabr_points_today' in data) || data.sabr_points_today is number) &&
+             (!('growth_score' in data) || data.growth_score is number) &&
+             (!('focus_time_total' in data) || data.focus_time_total is number) &&
+             (!('focus_time_today' in data) || data.focus_time_today is number) &&
+             (!('daily_wins' in data) || data.daily_wins is number) &&
+             (!('has_checked_in' in data) || data.has_checked_in is bool) &&
+             (!('mood_log_count_today' in data) || data.mood_log_count_today is number) &&
+             (!('last_mood_log_date' in data) || data.last_mood_log_date is string) &&
+             (!('last_active_date' in data) || data.last_active_date is string) &&
+             (!('unlocked_features' in data) || data.unlocked_features is list) &&
+             (!('achievements' in data) || data.achievements is list) &&
+             (!('language' in data) || data.language in ['en', 'so']) &&
+             (!('completed_resources' in data) || data.completed_resources is list) &&
+             (!('saved_resources' in data) || data.saved_resources is list) &&
+             (!('updated_at' in data) || data.updated_at is timestamp);
+    }
+
+    function isValidTask(data) {
+      return data.keys().hasAll(['user_id', 'title']) &&
+             data.user_id == request.auth.uid &&
+             data.title is string && data.title.size() > 0 && data.title.size() < 200 &&
+             (!('priority' in data) || data.priority in ['low', 'medium', 'high']) &&
+             (!('focus_time_spent' in data) || data.focus_time_spent is number) &&
+             (!('completed' in data) || data.completed is bool) &&
+             (!('time' in data) || data.time is string) &&
+             (!('duration' in data) || data.duration is string) &&
+             (request.method == 'update' ? data.created_at == resource.data.created_at : (!('created_at' in data) || isRecent(data.created_at)));
+    }
+
+    function isValidJournalEntry(data) {
+      return data.keys().hasAll(['user_id', 'content', 'date']) &&
+             data.user_id == request.auth.uid &&
+             data.content is string && data.content.size() > 0 && data.content.size() < 5000 &&
+             data.date is string &&
+             (!('mood' in data) || data.mood in ['very-sad', 'sad', 'neutral', 'happy', 'very-happy']) &&
+             (request.method == 'update' ? (data.created_at == resource.data.created_at && data.user_id == resource.data.user_id) : (!('created_at' in data) || isRecent(data.created_at)));
+    }
+
+    function isValidMoodLog(data) {
+      return data.keys().hasAll(['user_id', 'date', 'mood']) &&
+             data.user_id == request.auth.uid &&
+             data.date is string &&
+             data.mood in ['very-sad', 'sad', 'neutral', 'happy', 'very-happy'] &&
+             (!('note' in data) || (data.note is string && data.note.size() < 1000)) &&
+             (request.method == 'update' ? data.created_at == resource.data.created_at : (!('created_at' in data) || isRecent(data.created_at)));
+    }
+
+    function isValidBooking(data) {
+      return data.keys().hasAll(['userId', 'therapist', 'slot', 'demographics', 'evcNumber', 'userEmail', 'status']) &&
+             data.userId == request.auth.uid &&
+             data.status in ['pending', 'confirmed', 'cancelled'] &&
+             data.evcNumber is string && data.evcNumber.size() > 0 && data.evcNumber.size() < 20 &&
+             data.therapist is map &&
+             data.demographics is map &&
+             (request.method == 'update' ? data.createdAt == resource.data.createdAt : (!('createdAt' in data) || isRecent(data.createdAt)));
+    }
+
+    function isValidChallenge(data) {
+      return data.keys().hasAll(['title', 'description', 'durationDays', 'tasks', 'category']) &&
+             data.title is string && data.title.size() > 0 && data.title.size() < 100 &&
+             data.description is string && data.description.size() < 1000 &&
+             data.durationDays is number && data.durationDays > 0 &&
+             data.tasks is list &&
+             data.category in ['discipline', 'health', 'mindset', 'productivity'] &&
+             (!('terms' in data) || data.terms is list) &&
+             (!('createdBy' in data) || data.createdBy == request.auth.uid || isAdmin()) &&
+             (!('participantsCount' in data) || data.participantsCount is number) &&
+             (!('published' in data) || data.published is bool) &&
+             (!('isCustom' in data) || data.isCustom is bool);
+    }
+
+    function isValidUserChallenge(data) {
+      return data.keys().hasAll(['user_id', 'challengeId', 'startDate', 'endDate', 'status']) &&
+             data.user_id == request.auth.uid &&
+             data.challengeId is string &&
+             data.status in ['active', 'completed', 'failed'] &&
+             (!('currentDay' in data) || data.currentDay is number) &&
+             (!('streak' in data) || data.streak is number) &&
+             (!('dailyProgress' in data) || data.dailyProgress is map) &&
+             (!('lastCheckInDate' in data) || data.lastCheckInDate is string);
+    }
+
+    function isValidChatRoom(data) {
+      return data.keys().hasAll(['user_id', 'status', 'created_at']) &&
+             data.user_id is string &&
+             data.status in ['waiting', 'active', 'closed'] &&
+             (!('assigned_team_member_id' in data) || data.assigned_team_member_id is string) &&
+             (request.method == 'update' ? data.created_at == resource.data.created_at : isRecent(data.created_at));
+    }
+
+    function isValidChatMessage(data) {
+      return data.keys().hasAll(['room_id', 'sender_id', 'sender_type', 'text', 'created_at']) &&
+             data.room_id is string &&
+             data.sender_id is string &&
+             data.sender_type in ['user', 'team'] &&
+             data.text is string && data.text.size() > 0 && data.text.size() < 2000 &&
+             isRecent(data.created_at);
+    }
+
+    // ===============================================================
+    // Rules
+    // ===============================================================
+
+    match /profiles/{userId} {
+      allow read: if isAuthenticated();
+      allow create: if isOwner(userId) && isValidProfile(request.resource.data);
+      allow update: if (isOwner(userId) && isValidProfile(request.resource.data)) || isAdmin();
+    }
+
+    match /tasks/{taskId} {
+      allow read: if isAuthenticated() && (resource == null || resource.data.user_id == request.auth.uid);
+      allow create: if isRequestOwner() && isValidTask(request.resource.data);
+      allow update: if isDocOwner() && isRequestOwner() && isValidTask(request.resource.data);
+      allow delete: if isDocOwner();
+    }
+
+    match /journal_entries/{entryId} {
+      allow read: if isAuthenticated() && (resource == null || resource.data.user_id == request.auth.uid);
+      allow create: if isRequestOwner() && isValidJournalEntry(request.resource.data);
+      allow update: if isDocOwner() && isRequestOwner() && isValidJournalEntry(request.resource.data);
+      allow delete: if isDocOwner();
+    }
+
+    match /mood_logs/{logId} {
+      allow read: if isAuthenticated() && (resource == null || resource.data.user_id == request.auth.uid);
+      allow create: if isRequestOwner() && isValidMoodLog(request.resource.data);
+      allow update: if isDocOwner() && isRequestOwner() && isValidMoodLog(request.resource.data);
+      allow delete: if isDocOwner();
+    }
+
+    match /bookings/{bookingId} {
+      allow read: if isAuthenticated() && (resource == null || resource.data.userId == request.auth.uid || isAdmin());
+      allow create: if isAuthenticated() && request.resource.data.userId == request.auth.uid && isValidBooking(request.resource.data);
+      allow update, delete: if isAdmin();
+    }
+
+    match /notifications/{notificationId} {
+      allow read: if isAuthenticated() && (resource == null || resource.data.get('user_id', '') == request.auth.uid || isAdmin());
+      allow create: if isAuthenticated();
+      allow update: if isAuthenticated() && (resource.data.get('user_id', '') == request.auth.uid || isAdmin());
+      allow delete: if isAuthenticated() && (resource.data.get('user_id', '') == request.auth.uid || isAdmin());
+    }
+
+    match /resources/{resourceId} {
+      allow read: if (resource != null && resource.data.published == true) || isAdmin();
+      allow write: if isAdmin();
+    }
+
+    match /therapists/{therapistId} {
+      allow read: if (resource != null && resource.data.published == true) || isAdmin();
+      allow write: if isAdmin();
+    }
+
+    match /nasasho/{nasashoId} {
+      allow read: if (resource != null && resource.data.published == true) || isAdmin();
+      allow write: if isAdmin();
+    }
+    
+    match /challenges/{challengeId} {
+      allow read: if isAuthenticated();
+      allow create: if isAuthenticated() && isValidChallenge(request.resource.data);
+      allow update: if isAdmin() || (resource != null && resource.data.get('createdBy', '') == request.auth.uid && isValidChallenge(request.resource.data));
+      allow delete: if isAdmin() || (resource != null && resource.data.get('createdBy', '') == request.auth.uid);
+    }
+    
+    match /user_challenges/{userChallengeId} {
+      allow read: if isAuthenticated();
+      allow create: if isAuthenticated() && isValidUserChallenge(request.resource.data);
+      allow update: if isAuthenticated() && (resource.data.user_id == request.auth.uid || isAdmin()) && isValidUserChallenge(request.resource.data);
+      allow delete: if isAuthenticated() && (resource.data.user_id == request.auth.uid || isAdmin());
+    }
+
+    match /chat_rooms/{roomId} {
+      allow read: if isAuthenticated() && (resource.data.user_id == request.auth.uid || isAdmin());
+      allow create: if isAuthenticated() && request.resource.data.user_id == request.auth.uid && isValidChatRoom(request.resource.data);
+      allow update: if isAuthenticated() && (resource.data.user_id == request.auth.uid || isAdmin()) && isValidChatRoom(request.resource.data);
+    }
+
+    match /chat_messages/{messageId} {
+      allow read: if isAuthenticated() && (
+        (exists(/databases/$(database)/documents/chat_rooms/$(resource.data.room_id)) && 
+         get(/databases/$(database)/documents/chat_rooms/$(resource.data.room_id)).data.user_id == request.auth.uid) || 
+        isAdmin()
+      );
+      allow create: if isAuthenticated() && (
+        (exists(/databases/$(database)/documents/chat_rooms/$(request.resource.data.room_id)) && 
+         get(/databases/$(database)/documents/chat_rooms/$(request.resource.data.room_id)).data.user_id == request.auth.uid && 
+         request.resource.data.sender_type == 'user' && 
+         request.resource.data.sender_id == request.auth.uid) || 
+        (isAdmin() && request.resource.data.sender_type == 'team')
+      ) && isValidChatMessage(request.resource.data);
+    }
+
+    // Default deny
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}
